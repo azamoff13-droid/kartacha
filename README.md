@@ -52,6 +52,9 @@ There is no dedicated automated test suite yet. For now, use lint and build as t
 5. Add a custom card and confirm it appears in the current deck.
 6. Refresh the page and confirm saved progress/custom cards persist.
 
+For release-style manual testing, use the fuller QA checklist in
+[`docs/qa-checklist.md`](docs/qa-checklist.md).
+
 ## Reset Local Data
 
 The app saves data under the `fc-app-v1` localStorage key. To reset local progress in the browser console:
