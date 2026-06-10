@@ -53,13 +53,13 @@ export const Flashcard = ({ card, onDelete }: FlashcardProps) => {
         </div>
       </div>
 
-      <p className="text-gray-600 text-sm">Click to flip</p>
+      <p className="text-gray-600 text-sm">Tarjimani ko&apos;rish uchun kartani bosing</p>
 
       <button
         onClick={() => onDelete(card.id)}
         className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
       >
-        Delete Card
+        Kartani oʻchirish
       </button>
     </div>
   );

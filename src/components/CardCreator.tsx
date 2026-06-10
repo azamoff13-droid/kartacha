@@ -11,15 +11,18 @@ export const CardCreator = ({ onAddCard }: CardCreatorProps) => {
   const [word, setWord] = useState('');
   const [translation, setTranslation] = useState('');
   const [example, setExample] = useState('');
+  const [message, setMessage] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!word.trim() || !translation.trim() || !example.trim()) {
-      alert('Please fill in all fields');
+      setMessage('Soʻz, tarjima va misolni toʻldiring.');
       return;
     }
 
+    setIsSaving(true);
     onAddCard({
       word: word.trim(),
       translation: translation.trim(),
@@ -29,59 +32,77 @@ export const CardCreator = ({ onAddCard }: CardCreatorProps) => {
     setWord('');
     setTranslation('');
     setExample('');
+    setMessage('Karta saqlandi.');
+    setIsSaving(false);
   };
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto bg-gray-100 p-6 rounded-lg shadow-md">
-      <h3 className="text-lg font-bold mb-4">Add New Card</h3>
+      <h3 className="text-lg font-bold mb-4">Yangi karta</h3>
 
       <div className="mb-4">
         <label htmlFor="word" className="block text-sm font-medium text-gray-700 mb-2">
-          Word
+          Soʻz
         </label>
         <input
           id="word"
           type="text"
           value={word}
-          onChange={(e) => setWord(e.target.value)}
-          placeholder="Enter word"
+          onChange={(e) => {
+            setWord(e.target.value);
+            setMessage('');
+          }}
+          placeholder="Soʻzni kiriting"
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
       <div className="mb-4">
         <label htmlFor="translation" className="block text-sm font-medium text-gray-700 mb-2">
-          Translation
+          Tarjima
         </label>
         <input
           id="translation"
           type="text"
           value={translation}
-          onChange={(e) => setTranslation(e.target.value)}
-          placeholder="Enter translation"
+          onChange={(e) => {
+            setTranslation(e.target.value);
+            setMessage('');
+          }}
+          placeholder="Tarjimasini kiriting"
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
       <div className="mb-6">
         <label htmlFor="example" className="block text-sm font-medium text-gray-700 mb-2">
-          Example
+          Misol
         </label>
         <textarea
           id="example"
           value={example}
-          onChange={(e) => setExample(e.target.value)}
-          placeholder="Enter example sentence"
+          onChange={(e) => {
+            setExample(e.target.value);
+            setMessage('');
+          }}
+          placeholder="Misol jumla yozing"
           rows={3}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
+      {message && (
+        <p className="mb-4 text-sm text-gray-600" role="status">
+          {message}
+        </p>
+      )}
+
       <button
         type="submit"
+        disabled={isSaving}
         className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition font-semibold"
       >
-        Add Card
+        {isSaving ? 'Saqlanmoqda...' : 'Kartani qoʻshish'}
       </button>
     </form>
   );

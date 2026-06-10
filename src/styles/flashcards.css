@@ -278,6 +278,10 @@
 }
 .fc-btn:hover { background: var(--surf-2); }
 .fc-btn:active { transform: translateY(1px); }
+.fc-btn:disabled {
+  cursor: not-allowed;
+  transform: none;
+}
 .fc-btn.know { border-color: var(--good); color: var(--good); }
 .fc-btn.know:hover { background: color-mix(in oklab, var(--good) 12%, var(--surf)); }
 .fc-btn.dunno { border-color: var(--bad); color: var(--bad); }
@@ -340,6 +344,13 @@
 }
 .fc-input:focus { border-color: var(--accent); }
 textarea.fc-input { resize: vertical; min-height: 56px; font-size: 15px; }
+.fc-form-note {
+  margin: -4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+  opacity: 0.62;
+}
 
 /* Quiz mode ----------------------------------------------------------- */
 .fc-quiz-q {

@@ -208,7 +208,18 @@ function AddMode({ deckKey, deckName, onAdd }: any) {
   const [translation, setTranslation] = useState("");
   const [pos, setPos] = useState("");
   const [example, setExample] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const valid = front.trim() && translation.trim();
+
+  const saveCard = () => {
+    if (!valid || isSaving) return;
+    setIsSaving(true);
+    window.setTimeout(() => {
+      onAdd({ front: front.trim(), translation: translation.trim(), pos: pos.trim() || "—", example: example.trim() });
+      setIsSaving(false);
+    }, 180);
+  };
+
   return (
     <div className="fc-form">
       <div style={{textAlign:"center", marginBottom: 4}}>
@@ -231,17 +242,17 @@ function AddMode({ deckKey, deckName, onAdd }: any) {
         <label className="fc-label">Misol jumla (ixtiyoriy)</label>
         <textarea className="fc-input" value={example} onChange={(e) => setExample(e.target.value)} placeholder="Misol jumlasi..."/>
       </div>
+      <p className="fc-form-note">
+        So&apos;z va tarjima yozilsa, karta darhol shu kolodaga qo&apos;shiladi.
+      </p>
       <div style={{display:"flex", gap:10, justifyContent:"flex-end", marginTop:4}}>
-        <button className="fc-btn" onClick={() => { setFront(""); setTranslation(""); setPos(""); setExample(""); }}>Tozalash</button>
+        <button className="fc-btn" disabled={isSaving} onClick={() => { setFront(""); setTranslation(""); setPos(""); setExample(""); }}>Tozalash</button>
         <button
           className="fc-btn primary"
-          disabled={!valid}
-          style={{opacity: valid ? 1 : 0.4}}
-          onClick={() => {
-            if (!valid) return;
-            onAdd({ front: front.trim(), translation: translation.trim(), pos: pos.trim() || "—", example: example.trim() });
-          }}>
-          Kartani saqlash <IconArrow/>
+          disabled={!valid || isSaving}
+          style={{opacity: valid && !isSaving ? 1 : 0.5}}
+          onClick={saveCard}>
+          {isSaving ? "Saqlanmoqda..." : "Kartani saqlash"} {!isSaving && <IconArrow/>}
         </button>
       </div>
     </div>

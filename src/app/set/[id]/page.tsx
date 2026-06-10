@@ -56,7 +56,7 @@ export default function StudyPage({ params }: { params: { id: string } }) {
   };
 
   if (isLoading || !set) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return <div className="flex items-center justify-center min-h-screen">Yuklanmoqda...</div>;
   }
 
   const currentCard = set.cards[currentCardIndex];
@@ -67,21 +67,21 @@ export default function StudyPage({ params }: { params: { id: string } }) {
         <div className="flex justify-between items-center mb-8">
           <div>
             <Link href="/" className="text-blue-500 hover:text-blue-600 mb-4 block">
-              ← Back to Sets
+              ← Toʻplamlarga qaytish
             </Link>
             <h1 className="text-3xl font-bold">{set.name}</h1>
-            <p className="text-gray-600 mt-2">{set.cards.length} cards</p>
+            <p className="text-gray-600 mt-2">{set.cards.length} ta karta</p>
           </div>
         </div>
 
         {set.cards.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg shadow-md">
-            <p className="text-gray-500 text-lg mb-4">No cards in this set yet.</p>
+            <p className="text-gray-500 text-lg mb-4">Bu toʻplamda hali karta yoʻq.</p>
             <button
               onClick={() => setShowForm(true)}
               className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-semibold"
             >
-              Add Your First Card
+              Birinchi kartani qoʻshish
             </button>
           </div>
         ) : (
@@ -89,7 +89,7 @@ export default function StudyPage({ params }: { params: { id: string } }) {
             <div className="mb-8">
               <div className="mb-4 text-center">
                 <p className="text-gray-600">
-                  Card {currentCardIndex + 1} of {set.cards.length}
+                  Karta {currentCardIndex + 1} / {set.cards.length}
                 </p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                   <div
@@ -113,14 +113,14 @@ export default function StudyPage({ params }: { params: { id: string } }) {
                 disabled={currentCardIndex === 0}
                 className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition font-semibold"
               >
-                Previous
+                Oldingi
               </button>
               <button
                 onClick={handleNextCard}
                 disabled={currentCardIndex === set.cards.length - 1}
                 className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition font-semibold"
               >
-                Next
+                Keyingisi
               </button>
             </div>
 
@@ -129,7 +129,7 @@ export default function StudyPage({ params }: { params: { id: string } }) {
                 onClick={() => setShowForm(!showForm)}
                 className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-semibold"
               >
-                {showForm ? 'Cancel' : 'Add New Card'}
+                {showForm ? 'Bekor qilish' : 'Yangi karta qoʻshish'}
               </button>
             </div>
           </>
