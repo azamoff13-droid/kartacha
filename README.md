@@ -47,6 +47,8 @@ There is no dedicated automated test suite yet. For now, use lint and build as t
 
 Keep `main` stable. Use the safe branch, test, review, and merge rules in
 [`docs/engineering-workflow.md`](docs/engineering-workflow.md) for every feature.
+The recurring 30-day automation prompt is tracked in
+[`docs/automation-30-day-plan.md`](docs/automation-30-day-plan.md).
 
 ## Manual Baseline QA
 
