@@ -77,6 +77,12 @@ const IconArrow = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
 );
 
+const DAILY_GOALS = [
+  { key: "time", label: "10 daqiqa", hint: "Faol mashq vaqti" },
+  { key: "count", label: "20 so'z", hint: "Aniq karta soni" },
+  { key: "free", label: "Erkin", hint: "Xohlagancha davom eting" },
+];
+
 function cardId(c: any) { return c.front; }
 
 function shuffle(arr: any[]) {
@@ -272,6 +278,7 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [mode, setMode] = useState('cards');
+  const [selectedGoal, setSelectedGoal] = useState("time");
 
   useEffect(() => {
     setIndex((i) => (i >= allCards.length ? 0 : i));
@@ -283,6 +290,10 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
   const knownCount = Object.keys(knownSet).filter((k) => knownSet[k]).length;
   const progress = allCards.length ? knownCount / allCards.length : 0;
   const currentCardLabel = allCards.length ? `${index + 1}/${allCards.length}` : "0/0";
+  const unseenCount = Math.max(allCards.length - knownCount, 0);
+  const plannedCards = selectedGoal === "count" ? Math.min(20, allCards.length) : Math.min(12, allCards.length);
+  const tomorrowDue = Math.min(unseenCount, Math.max(2, Math.ceil(unseenCount * 0.35)));
+  const selectedGoalMeta = DAILY_GOALS.find((goal) => goal.key === selectedGoal);
 
   const next = useCallback(() => {
     setIndex((i) => (i + 1) % allCards.length);
@@ -346,6 +357,58 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
           <span>{knownCount}/{allCards.length}</span>
         </div>
       </div>
+
+      {mode === "cards" && (
+        <section className="fc-start-panel" aria-label="Bugungi mashq rejasi">
+          <div className="fc-start-copy">
+            <span className="fc-eyebrow">Bugungi reja</span>
+            <h1>So&apos;zlarni vaqt va eslab qolish sifati bilan yodlang.</h1>
+            <p>
+              {deckName} uchun faol mashqni boshlang. Keyingi bosqichda bu joy
+              active timer, qaytadigan so&apos;zlar va session summary bilan ulanadi.
+            </p>
+          </div>
+          <div className="fc-goal-box">
+            <div className="fc-goal-tabs" role="tablist" aria-label="Kunlik reja">
+              {DAILY_GOALS.map((goal) => (
+                <button
+                  key={goal.key}
+                  className={`fc-goal-tab ${selectedGoal === goal.key ? "active" : ""}`}
+                  onClick={() => setSelectedGoal(goal.key)}
+                  role="tab"
+                  aria-selected={selectedGoal === goal.key}
+                >
+                  <strong>{goal.label}</strong>
+                  <span>{goal.hint}</span>
+                </button>
+              ))}
+            </div>
+            <div className="fc-start-stats" aria-label="Mashq signallari">
+              <div>
+                <span>Reja</span>
+                <strong>{selectedGoalMeta?.label}</strong>
+              </div>
+              <div>
+                <span>Bugungi queue</span>
+                <strong>{plannedCards} so&apos;z</strong>
+              </div>
+              <div>
+                <span>Ertaga qaytadi</span>
+                <strong>{tomorrowDue} so&apos;z</strong>
+              </div>
+            </div>
+            <button
+              className="fc-btn primary fc-start-cta"
+              onClick={() => {
+                setMode("cards");
+                setRevealed(false);
+              }}
+            >
+              Mashqni boshlash <IconArrow/>
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="fc-body">
         {mode === "cards" && (

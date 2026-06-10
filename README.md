@@ -43,6 +43,10 @@ npm run build
 
 There is no dedicated automated test suite yet. For now, use lint and build as the baseline checks.
 
+## Product Direction
+
+The current MVP direction is documented in [`docs/product-spec.md`](docs/product-spec.md).
+
 ## Manual Baseline QA
 
 1. Open `http://localhost:3000`.
