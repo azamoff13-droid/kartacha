@@ -43,6 +43,11 @@ npm run build
 
 There is no dedicated automated test suite yet. For now, use lint and build as the baseline checks.
 
+## Engineering Workflow
+
+Keep `main` stable. Use the safe branch, test, review, and merge rules in
+[`docs/engineering-workflow.md`](docs/engineering-workflow.md) for every feature.
+
 ## Manual Baseline QA
 
 1. Open `http://localhost:3000`.
