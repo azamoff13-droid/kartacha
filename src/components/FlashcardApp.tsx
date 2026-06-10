@@ -89,7 +89,7 @@ function shuffle(arr: any[]) {
 }
 
 function CardsMode({ card, revealed, setRevealed, markKnown, next, prev, index, total, catNum, deckCode, isKnown }: any) {
-  if (!card) return <div style={{textAlign:"center",opacity:0.6}}>Karta yo&apos;q. &quot;Qo&apos;shish&quot;ga o&apos;ting.</div>;
+  if (!card) return <div style={{textAlign:"center",opacity:0.6}}>Hozircha karta yo&apos;q. &quot;Yangi karta&quot; bo&apos;limidan birinchi so&apos;zingizni qo&apos;shing.</div>;
   return (
     <>
       <div className="fc-card-stage">
@@ -111,7 +111,7 @@ function CardsMode({ card, revealed, setRevealed, markKnown, next, prev, index, 
             {!revealed && (
               <div className="fc-curtain">
                 <span className="fc-curtain-chev">↓</span>
-                <span>Bosing — tarjima va misol</span>
+                <span>Avval eslang, keyin oching</span>
                 <span className="fc-curtain-chev">↓</span>
               </div>
             )}
@@ -121,10 +121,10 @@ function CardsMode({ card, revealed, setRevealed, markKnown, next, prev, index, 
       <div className="fc-actions">
         <button className="fc-btn" onClick={prev}>← Oldingi</button>
         <button className="fc-btn dunno" onClick={() => markKnown(false)}>
-          <IconX/> Bilmadim
+          <IconX/> Bilmayman
         </button>
         <button className="fc-btn know" onClick={() => markKnown(true)}>
-          <IconCheck/> Bilaman
+          <IconCheck/> Esda qoldi
         </button>
         <button className="fc-btn" onClick={next}>Keyingisi →</button>
       </div>
@@ -154,7 +154,7 @@ function QuizMode({ deckKey, cards }: any) {
 
   if (!round) {
     return <div style={{textAlign:"center",opacity:0.7,maxWidth:420,margin:"auto"}}>
-      Test uchun kamida 4 ta karta kerak. Bu kolodada hozircha kam so&apos;z bor.
+      Tez test uchun kamida 4 ta karta kerak. Yana bir nechta so&apos;z qo&apos;shing.
     </div>;
   }
 
@@ -162,11 +162,11 @@ function QuizMode({ deckKey, cards }: any) {
   if (!cur) {
     return (
       <div style={{textAlign:"center", maxWidth:420, margin:"auto", display:"flex", flexDirection:"column", gap:14}}>
-        <div className="fc-quiz-q">Natija</div>
+        <div className="fc-quiz-q">Bugungi test natijasi</div>
         <div className="fc-quiz-word">{score.right}/{score.right + score.wrong}</div>
         <button className="fc-btn primary" style={{alignSelf:"center"}}
           onClick={() => { setRound(buildRound(cards)); setQIdx(0); setPicked(null); setScore({right:0,wrong:0}); }}>
-          Qaytadan boshlash <IconArrow/>
+          Yana bir marta ishlash <IconArrow/>
         </button>
       </div>
     );
@@ -182,7 +182,7 @@ function QuizMode({ deckKey, cards }: any) {
 
   return (
     <div style={{width:"100%"}}>
-      <div className="fc-quiz-q">{qIdx + 1}/{round.length} · Tarjimasini tanlang</div>
+      <div className="fc-quiz-q">{qIdx + 1}/{round.length} · To&apos;g&apos;ri tarjimani tanlang</div>
       <h2 className="fc-quiz-word">{cur.card.front}</h2>
       <div className="fc-quiz-opts">
         {cur.options.map((opt: any, i: number) => {
@@ -197,7 +197,7 @@ function QuizMode({ deckKey, cards }: any) {
         })}
       </div>
       <div className="fc-quiz-feedback">
-        {picked && (picked.front === cur.card.front ? "To'g'ri." : `To'g'ri javob: ${cur.card.translation}`)}
+        {picked && (picked.front === cur.card.front ? "To'g'ri, davom etamiz." : `To'g'ri javob: ${cur.card.translation}`)}
       </div>
     </div>
   );
@@ -282,6 +282,7 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
   const knownSet = known[deckKey] || {};
   const knownCount = Object.keys(knownSet).filter((k) => knownSet[k]).length;
   const progress = allCards.length ? knownCount / allCards.length : 0;
+  const currentCardLabel = allCards.length ? `${index + 1}/${allCards.length}` : "0/0";
 
   const next = useCallback(() => {
     setIndex((i) => (i + 1) % allCards.length);
@@ -333,12 +334,12 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
             className={`fc-mode ${mode === m ? "active" : ""}`}
             onClick={() => { setMode(m); setRevealed(false); }}
           >
-            {m === "cards" ? "Kartalar" : m === "quiz" ? "Test" : "Qo\u0027shish"}
+            {m === "cards" ? "Bugungi mashq" : m === "quiz" ? "Tez test" : "Yangi karta"}
           </button>
         ))}
         <div className="fc-mode-spacer"/>
         <div className="fc-progress-wrap">
-          <span>O&apos;rgangan</span>
+          <span>Esda qolgan</span>
           <div className="fc-progress-track">
             <div className="fc-progress-fill" style={{ width: `${progress * 100}%` }}/>
           </div>
@@ -385,10 +386,10 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
       <div className="fc-foot">
         <span>{deckCode}</span><span className="dot"/>
         <span>{allCards.length} ta so&apos;z</span><span className="dot"/>
-        {mode === "cards" && (<><span>Karta {index + 1}</span><span className="dot"/></>)}
-        <span>localStorage</span>
+        {mode === "cards" && (<><span>Bugungi karta {currentCardLabel}</span><span className="dot"/></>)}
+        <span>Qurilmada saqlanadi</span>
         <span className="spacer"/>
-        <span>Probel — ag&apos;darish</span>
+        <span>Kartani bosib javobni oching</span>
       </div>
     </div>
   );
