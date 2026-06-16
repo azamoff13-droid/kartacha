@@ -39,6 +39,7 @@ NEXTAUTH_SECRET=replace-with-a-random-secret
 GOOGLE_CLIENT_ID=replace-with-google-client-id
 GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
 DATABASE_URL=postgresql://user:password@host:5432/kartacha
+DIRECT_URL=postgresql://user:password@host:5432/kartacha
 ```
 
 Google OAuth redirect URIs:
@@ -76,11 +77,25 @@ GET /api/me
 
 It returns the current session user, whether a database is configured, and whether the request is authenticated.
 
+For Supabase, use the pooled connection string for `DATABASE_URL` and the direct connection string for `DIRECT_URL`. In the Supabase dashboard, open Project Settings -> Database -> Connection string:
+
+- `DATABASE_URL`: Transaction pooler connection string, usually port `6543`, with `?pgbouncer=true&connection_limit=1`.
+- `DIRECT_URL`: Direct connection string, usually port `5432`.
+
+After setting both values in Vercel, redeploy and check:
+
+```text
+GET /api/health/db
+```
+
+It should return `{ "configured": true, "ok": true }` when Supabase is connected.
+
 ## API Routes
 
 - `GET/POST /api/auth/[...nextauth]` - NextAuth Google OAuth handlers.
 - `GET /api/auth/config` - returns whether Google auth is configured for the current deployment.
 - `GET /api/me` - returns the current authenticated user and backend readiness flags.
+- `GET /api/health/db` - checks whether the configured database connection works.
 
 ## Checks
 

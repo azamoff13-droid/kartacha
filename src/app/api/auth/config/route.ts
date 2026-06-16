@@ -5,5 +5,6 @@ export function GET() {
   return NextResponse.json({
     google: authRuntimeConfig.googleConfigured,
     database: authRuntimeConfig.databaseConfigured,
+    secret: authRuntimeConfig.secretConfigured,
   });
 }

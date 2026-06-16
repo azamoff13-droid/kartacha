@@ -3,6 +3,7 @@ import GoogleProvider from 'next-auth/providers/google';
 
 const googleConfigured = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 const databaseConfigured = Boolean(process.env.DATABASE_URL);
+const secretConfigured = Boolean(process.env.NEXTAUTH_SECRET);
 
 function getDatabaseAdapter(): NextAuthOptions['adapter'] {
   if (!databaseConfigured) return undefined;
@@ -42,4 +43,5 @@ export const authOptions: NextAuthOptions = {
 export const authRuntimeConfig = {
   googleConfigured,
   databaseConfigured,
+  secretConfigured,
 };
