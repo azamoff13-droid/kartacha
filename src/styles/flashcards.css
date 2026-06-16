@@ -3,7 +3,7 @@
 :root {
   --w: 100%;
   --h: auto;
-  --max-w: 980px;
+  --max-w: none;
 }
 
 /* Type ---------------------------------------------------------------- */
@@ -15,7 +15,7 @@
   width: var(--w);
   height: var(--h);
   max-width: var(--max-w);
-  margin: 0 auto;
+  margin: 0;
   font-family: "Geist", system-ui, sans-serif;
   font-size: clamp(13px, 2vw, 15px);
   line-height: 1.45;
@@ -90,8 +90,9 @@
 /* Mode tabs ----------------------------------------------------------- */
 .fc-modes {
   display: flex;
+  align-items: flex-start;
   gap: 0;
-  padding: 0 28px;
+  padding: 0 28px 12px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--rule);
 }
@@ -119,20 +120,37 @@
 }
 .fc-mode-spacer { flex: 1; }
 .fc-progress-wrap {
-  display: flex; align-items: center; gap: 10px;
-  font-size: 11px; letter-spacing: 0.05em;
-  text-transform: uppercase; opacity: 0.65;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(58px, auto));
+  gap: 6px;
   padding: 0 0 0 16px;
+  margin-bottom: 2px;
 }
-.fc-progress-track {
-  width: 120px; height: 4px;
-  background: var(--rule);
-  border-radius: 999px; overflow: hidden;
+.fc-progress-stat {
+  min-width: 58px;
+  padding: 5px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--surf);
+  color: var(--ink);
 }
-.fc-progress-fill {
-  height: 100%;
-  background: var(--accent);
-  transition: width 250ms ease;
+.fc-progress-stat span,
+.fc-progress-stat strong {
+  display: block;
+}
+.fc-progress-stat span {
+  font-size: 9px;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.58;
+}
+.fc-progress-stat strong {
+  margin-top: 2px;
+  font-family: "Newsreader", serif;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1;
 }
 
 /* Body / card area ---------------------------------------------------- */
@@ -262,6 +280,14 @@
   justify-content: center;
   flex-shrink: 0;
 }
+.fc-rating-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 620px;
+  margin: -4px auto 0;
+}
 .fc-btn {
   border: 1px solid var(--rule);
   background: var(--surf);
@@ -286,6 +312,10 @@
 .fc-btn.know:hover { background: color-mix(in oklab, var(--good) 12%, var(--surf)); }
 .fc-btn.dunno { border-color: var(--bad); color: var(--bad); }
 .fc-btn.dunno:hover { background: color-mix(in oklab, var(--bad) 12%, var(--surf)); }
+.fc-btn.hard { border-color: var(--hard); color: var(--hard); }
+.fc-btn.hard:hover { background: color-mix(in oklab, var(--hard) 12%, var(--surf)); }
+.fc-btn.easy { border-color: var(--easy); color: var(--easy); }
+.fc-btn.easy:hover { background: color-mix(in oklab, var(--easy) 12%, var(--surf)); }
 .fc-btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .fc-btn.primary:hover { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 .fc-btn .kbd {
@@ -295,6 +325,174 @@
   border: 1px solid currentColor;
   border-radius: 3px;
   opacity: 0.5;
+}
+
+/* Empty state --------------------------------------------------------- */
+.fc-empty {
+  width: 100%;
+  max-width: 480px;
+  margin: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.fc-empty h2 {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.fc-empty p {
+  max-width: 380px;
+  margin: 0 0 4px;
+  color: var(--ink);
+  opacity: 0.68;
+}
+
+/* Session summary ----------------------------------------------------- */
+.fc-queue-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto -4px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  opacity: 0.62;
+}
+.fc-summary {
+  width: 100%;
+  max-width: 560px;
+  margin: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.fc-summary h2 {
+  margin: 0;
+  font-size: 42px;
+  font-weight: 500;
+  line-height: 1.05;
+}
+.fc-summary p {
+  max-width: 410px;
+  margin: 0;
+  color: var(--ink);
+  opacity: 0.68;
+}
+.fc-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+.fc-summary-grid div {
+  background: var(--surf);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  padding: 14px 10px;
+}
+.fc-summary-grid strong {
+  display: block;
+  font-family: "Newsreader", serif;
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 1;
+}
+.fc-summary-grid span {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+
+/* Hard words ---------------------------------------------------------- */
+.fc-hard-panel {
+  width: 100%;
+  max-width: 760px;
+  margin: -2px auto 0;
+  padding: 12px;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  background: color-mix(in oklab, var(--hard) 8%, var(--surf));
+}
+.fc-hard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  opacity: 0.7;
+}
+.fc-hard-head strong {
+  display: inline-flex;
+  min-width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surf);
+  border: 1px solid var(--rule);
+  font-size: 12px;
+  opacity: 1;
+}
+.fc-hard-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.fc-hard-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+}
+.fc-hard-item div {
+  min-width: 0;
+}
+.fc-hard-item strong,
+.fc-hard-item span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fc-hard-item strong {
+  font-family: "Newsreader", "Noto Serif KR", serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+.fc-hard-item span {
+  margin-top: 2px;
+  font-size: 12px;
+  opacity: 0.64;
+}
+.fc-hard-item em {
+  flex: 0 0 auto;
+  color: var(--hard);
+  font-size: 11px;
+  font-style: normal;
+  white-space: nowrap;
 }
 
 /* Footer -------------------------------------------------------------- */
@@ -350,6 +548,12 @@ textarea.fc-input { resize: vertical; min-height: 56px; font-size: 15px; }
   line-height: 1.45;
   color: var(--ink);
   opacity: 0.62;
+}
+.fc-form-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
 }
 
 /* Quiz mode ----------------------------------------------------------- */
@@ -422,6 +626,8 @@ textarea.fc-input { resize: vertical; min-height: 56px; font-size: 15px; }
   --accent: #b35a32;
   --good: #5a7a3f;
   --bad: #b54a3a;
+  --hard: #9a6a22;
+  --easy: #2f7d79;
   --card: #fbf5e9;
   --card-border: none;
   --card-radius: 24px;
@@ -440,6 +646,8 @@ textarea.fc-input { resize: vertical; min-height: 56px; font-size: 15px; }
   --accent: #e89968;
   --good: #b8cf91;
   --bad: #e08570;
+  --hard: #e0b35e;
+  --easy: #89d4ce;
   --card: #261e15;
   --card-shadow:
     0 1px 2px rgba(0,0,0,0.3),
@@ -455,3 +663,262 @@ textarea.fc-input { resize: vertical; min-height: 56px; font-size: 15px; }
   pointer-events: none;
 }
 .v-modern .fc-divider { background: var(--rule); }
+
+/* Mobile pass ---------------------------------------------------------- */
+@media (max-width: 640px) {
+  .fc-app {
+    min-height: 100svh;
+  }
+
+  .fc-top {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 16px 10px;
+  }
+
+  .fc-brand {
+    min-width: 0;
+    flex: 1 1 calc(100% - 46px);
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .fc-brand-sub {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .fc-decks {
+    order: 3;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-radius: 14px;
+  }
+
+  .fc-deck {
+    min-height: 38px;
+    padding: 8px 10px;
+    white-space: normal;
+  }
+
+  .fc-modes {
+    flex-wrap: wrap;
+    row-gap: 10px;
+    padding: 0 16px 12px;
+  }
+
+  .fc-mode {
+    flex: 1 1 33.333%;
+    padding: 10px 6px 9px;
+    font-size: 10px;
+    text-align: center;
+  }
+
+  .fc-mode.active::after {
+    left: 10px;
+    right: 10px;
+  }
+
+  .fc-mode-spacer {
+    display: none;
+  }
+
+  .fc-progress-wrap {
+    width: 100%;
+    padding: 0;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .fc-progress-stat {
+    min-width: 0;
+    text-align: center;
+    padding: 6px 4px;
+  }
+
+  .fc-body {
+    padding: 16px;
+    gap: 14px;
+    justify-content: flex-start;
+  }
+
+  .fc-card-stage {
+    flex: 0 0 auto;
+  }
+
+  .fc-card {
+    min-height: 420px;
+    border-radius: 18px;
+  }
+
+  .fc-card-top,
+  .fc-card-bot {
+    padding: 22px 18px;
+  }
+
+  .fc-word,
+  .fc-app.ko .fc-word {
+    font-size: clamp(40px, 13vw, 56px);
+    overflow-wrap: anywhere;
+  }
+
+  .fc-trans {
+    font-size: clamp(24px, 8vw, 30px);
+  }
+
+  .fc-example {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+
+  .fc-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .fc-actions .fc-btn {
+    justify-content: center;
+    min-height: 42px;
+    padding: 9px 10px;
+  }
+
+  .fc-rating-actions {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .fc-rating-actions .fc-btn {
+    justify-content: center;
+    min-height: 42px;
+    padding: 9px 10px;
+  }
+
+  .fc-empty {
+    padding: 28px 8px;
+  }
+
+  .fc-empty h2 {
+    font-size: 30px;
+  }
+
+  .fc-queue-meta {
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: -2px;
+  }
+
+  .fc-hard-panel {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .fc-hard-list {
+    grid-template-columns: 1fr;
+  }
+
+  .fc-hard-item {
+    padding: 9px 10px;
+  }
+
+  .fc-summary {
+    padding: 28px 4px;
+  }
+
+  .fc-summary h2 {
+    font-size: 34px;
+  }
+
+  .fc-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fc-form {
+    gap: 12px;
+  }
+
+  .fc-form-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .fc-form-actions .fc-btn {
+    justify-content: center;
+    padding-inline: 10px;
+  }
+
+  .fc-quiz-word,
+  .fc-app.ko .fc-quiz-word {
+    font-size: clamp(40px, 12vw, 52px);
+    margin-bottom: 18px;
+    overflow-wrap: anywhere;
+  }
+
+  .fc-quiz-opts {
+    grid-template-columns: 1fr;
+  }
+
+  .fc-quiz-opt {
+    padding: 12px 14px;
+  }
+
+  .fc-foot {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 10px 16px 14px;
+    line-height: 1.35;
+  }
+
+  .fc-foot .spacer {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .fc-top {
+    padding-inline: 12px;
+  }
+
+  .fc-modes {
+    padding-inline: 12px;
+  }
+
+  .fc-body {
+    padding: 12px;
+  }
+
+  .fc-card {
+    min-height: 390px;
+  }
+
+  .fc-curtain {
+    padding: 0 16px;
+    text-align: center;
+    line-height: 1.35;
+  }
+
+  .fc-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .fc-actions .fc-btn {
+    width: 100%;
+  }
+
+  .fc-rating-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .fc-rating-actions .fc-btn {
+    width: 100%;
+  }
+
+  .fc-form-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .fc-foot {
+    padding-inline: 12px;
+  }
+}
