@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import { authRuntimeConfig } from '../auth-options';
 
 export function GET() {
   return NextResponse.json({
-    google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    google: authRuntimeConfig.googleConfigured,
+    database: authRuntimeConfig.databaseConfigured,
   });
 }

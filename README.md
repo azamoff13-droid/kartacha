@@ -38,6 +38,7 @@ NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=replace-with-a-random-secret
 GOOGLE_CLIENT_ID=replace-with-google-client-id
 GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
+DATABASE_URL=postgresql://user:password@host:5432/kartacha
 ```
 
 Google OAuth redirect URIs:
@@ -49,12 +50,37 @@ https://kartacha.vercel.app/api/auth/callback/google
 
 In Vercel, add the same environment variables with `NEXTAUTH_URL=https://kartacha.vercel.app`, then redeploy production.
 
-If Google credentials are missing, the app shows a demo mode so UI work can still be tested.
+If Google credentials are missing, the app shows a demo mode so UI work can still be tested. If `DATABASE_URL` is missing, auth falls back to JWT sessions and the current browser-only flashcard data still works.
+
+## Backend Setup
+
+The first backend slice uses Prisma with Postgres for NextAuth users and the future flashcard data model.
+
+Generate the Prisma client:
+
+```bash
+npm run prisma:generate
+```
+
+Apply production migrations after `DATABASE_URL` is configured:
+
+```bash
+npm run prisma:migrate
+```
+
+The current foundation endpoint is:
+
+```text
+GET /api/me
+```
+
+It returns the current session user, whether a database is configured, and whether the request is authenticated.
 
 ## API Routes
 
 - `GET/POST /api/auth/[...nextauth]` - NextAuth Google OAuth handlers.
 - `GET /api/auth/config` - returns whether Google auth is configured for the current deployment.
+- `GET /api/me` - returns the current authenticated user and backend readiness flags.
 
 ## Checks
 
