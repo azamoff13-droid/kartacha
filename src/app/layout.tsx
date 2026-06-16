@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Flashcard Vocabulary',
-  description: 'Learn foreign languages with flashcards',
+  title: 'Karta.cha',
+  description: 'Koreys va ingliz so‘zlarini smart flashcard bilan mashq qiling',
 };
 
 export default function RootLayout({
@@ -13,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><Providers>{children}</Providers></body>
     </html>
   );
 }
