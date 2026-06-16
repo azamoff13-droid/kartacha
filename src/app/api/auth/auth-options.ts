@@ -1,13 +1,19 @@
-import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import type { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import { prisma } from '@/src/lib/prisma';
 
 const googleConfigured = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 const databaseConfigured = Boolean(process.env.DATABASE_URL);
 
+function getDatabaseAdapter(): NextAuthOptions['adapter'] {
+  if (!databaseConfigured) return undefined;
+
+  const { PrismaAdapter } = require('@next-auth/prisma-adapter') as typeof import('@next-auth/prisma-adapter');
+  const { prisma } = require('@/src/lib/prisma') as typeof import('@/src/lib/prisma');
+  return PrismaAdapter(prisma);
+}
+
 export const authOptions: NextAuthOptions = {
-  adapter: databaseConfigured ? PrismaAdapter(prisma) : undefined,
+  adapter: getDatabaseAdapter(),
   providers: googleConfigured
     ? [
         GoogleProvider({
