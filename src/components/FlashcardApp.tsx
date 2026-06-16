@@ -52,12 +52,20 @@ interface HardWord {
   dueLabel: string;
 }
 
+interface ActivityState {
+  streak: number;
+  bestStreak: number;
+  lastStudyDate?: string;
+  totalReviews: number;
+}
+
 interface Store {
   deckKey: string;
   dark: boolean;
   known: Record<string, Record<string, boolean>>;
   custom: Record<string, CardRecord[]>;
   reviews: Record<string, Record<string, ReviewState>>;
+  activity: ActivityState;
 }
 
 interface AuthConfig {
@@ -68,8 +76,40 @@ function storageKeyFor(userKey: string) {
   return `${LS_KEY}:${userKey}`;
 }
 
+function todayKey(now = new Date()) {
+  return now.toISOString().slice(0, 10);
+}
+
+function daysBetween(a: string, b: string) {
+  const start = new Date(`${a}T00:00:00.000Z`).getTime();
+  const end = new Date(`${b}T00:00:00.000Z`).getTime();
+  return Math.round((end - start) / (24 * 60 * 60 * 1000));
+}
+
+function defaultActivity(): ActivityState {
+  return { streak: 0, bestStreak: 0, totalReviews: 0 };
+}
+
+function updateActivity(activity: ActivityState | undefined) {
+  const current = activity || defaultActivity();
+  const today = todayKey();
+  const gap = current.lastStudyDate ? daysBetween(current.lastStudyDate, today) : null;
+  const streak = gap === 0
+    ? current.streak || 1
+    : gap === 1
+      ? (current.streak || 0) + 1
+      : 1;
+
+  return {
+    streak,
+    bestStreak: Math.max(current.bestStreak || 0, streak),
+    lastStudyDate: today,
+    totalReviews: (current.totalReviews || 0) + 1,
+  };
+}
+
 function loadStore(storageKey: string): Store {
-  const fallback: Store = { deckKey: 'en', dark: false, known: {}, custom: { en: [], ko: [] }, reviews: {} };
+  const fallback: Store = { deckKey: 'en', dark: false, known: {}, custom: { en: [], ko: [] }, reviews: {}, activity: defaultActivity() };
   try {
     if (typeof window !== 'undefined') {
       const raw = localStorage.getItem(storageKey);
@@ -82,6 +122,7 @@ function loadStore(storageKey: string): Store {
           known: parsed.known || {},
           custom: { ...fallback.custom, ...(parsed.custom || {}) },
           reviews: parsed.reviews || {},
+          activity: { ...fallback.activity, ...(parsed.activity || {}) },
         };
       }
     }
@@ -160,6 +201,14 @@ const IconGoogle = () => (
     <path fill="#FBBC05" d="M6.41 13.89A6.02 6.02 0 0 1 6.1 12c0-.65.11-1.29.31-1.89V7.52H3.06A10 10 0 0 0 2 12c0 1.61.39 3.14 1.06 4.48l3.35-2.59z"/>
     <path fill="#EA4335" d="M12 5.99c1.47 0 2.79.51 3.83 1.5l2.86-2.86A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.94 5.52l3.35 2.59C7.2 7.75 9.4 5.99 12 5.99z"/>
   </svg>
+);
+
+const IconDownload = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+);
+
+const IconUpload = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg>
 );
 
 function cardId(c: CardRecord) {
@@ -327,15 +376,46 @@ function AuthScreen({ googleReady, onDemo }: { googleReady: boolean; onDemo: () 
   );
 }
 
-function AccountMenu({ userLabel, demoMode }: { userLabel: string; demoMode: boolean }) {
+function AccountMenu({
+  userLabel,
+  demoMode,
+  activity,
+  onExport,
+  onImport,
+}: {
+  userLabel: string;
+  demoMode: boolean;
+  activity: ActivityState;
+  onExport: () => void;
+  onImport: (file: File) => void;
+}) {
   return (
-    <div className="fc-account">
-      <span>{demoMode ? 'Demo' : userLabel}</span>
-      {demoMode ? (
-        <button className="fc-link-btn" onClick={() => signIn('google')}>Google</button>
-      ) : (
-        <button className="fc-link-btn" onClick={() => signOut()}>Chiqish</button>
-      )}
+    <div className="fc-account-wrap">
+      <div className="fc-streak" title="Kunlik streak">
+        <strong>{activity.streak || 0}</strong>
+        <span>kun</span>
+      </div>
+      <div className="fc-account">
+        <span>{demoMode ? 'Demo' : userLabel}</span>
+        {demoMode ? (
+          <button className="fc-link-btn" onClick={() => signIn('google')}>Google</button>
+        ) : (
+          <button className="fc-link-btn" onClick={() => signOut()}>Chiqish</button>
+        )}
+      </div>
+      <div className="fc-backup-tools" aria-label="Backup">
+        <button className="fc-icon-btn mini" onClick={onExport} title="Backup yuklab olish">
+          <IconDownload/>
+        </button>
+        <label className="fc-icon-btn mini" title="Backup import qilish">
+          <IconUpload/>
+          <input type="file" accept="application/json" onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onImport(file);
+            event.target.value = '';
+          }}/>
+        </label>
+      </div>
     </div>
   );
 }
@@ -719,6 +799,7 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
   const [sessionStats, setSessionStats] = useState<SessionStats>({ reviewed: 0, xp: 0, tomorrow: 0 });
   const [sessionQueueIds, setSessionQueueIds] = useState<string[]>([]);
   const [queuePlan, setQueuePlan] = useState<QueuePlan>({ new: 0, review: 0 });
+  const [backupNotice, setBackupNotice] = useState("");
 
   useEffect(() => {
     const plannedReviewMap = reviews[deckKey] || {};
@@ -794,6 +875,7 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
         ...prevStore,
         known: { ...prevStore.known, [deckKey]: deckKnown },
         reviews: { ...prevStore.reviews, [deckKey]: nextDeckReviews },
+        activity: updateActivity(prevStore.activity),
       };
     });
     setSessionStats((stats) => ({
@@ -900,11 +982,61 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
     return { ok: true, message: "Karta o'chirildi." };
   };
 
+  const exportBackup = () => {
+    if (typeof window === 'undefined') return;
+    const payload = {
+      app: 'kartacha',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      store,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `kartacha-backup-${todayKey()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setBackupNotice("Backup fayl yuklab olindi.");
+  };
+
+  const importBackup = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result || '{}'));
+        const importedStore = parsed.store || parsed;
+        if (!importedStore || typeof importedStore !== 'object' || !importedStore.custom || !importedStore.reviews) {
+          setBackupNotice("Backup fayl formati noto'g'ri.");
+          return;
+        }
+        const nextStore: Store = {
+          deckKey: importedStore.deckKey || 'en',
+          dark: Boolean(importedStore.dark),
+          known: importedStore.known || {},
+          custom: { en: [], ko: [], ...(importedStore.custom || {}) },
+          reviews: importedStore.reviews || {},
+          activity: { ...defaultActivity(), ...(importedStore.activity || {}) },
+        };
+        setStore(nextStore);
+        setMode('cards');
+        setIndex(0);
+        setRevealed(false);
+        setSessionDone(false);
+        setBackupNotice("Backup import qilindi.");
+      } catch (error) {
+        setBackupNotice("Backup faylni o'qib bo'lmadi.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const summaryStats = {
     ...sessionStats,
     tomorrow: sessionStats.reviewed ? sessionStats.tomorrow : countTomorrowReviews(reviewMap),
   };
   const hardWords = useMemo(() => getHardWords(allCards, reviewMap), [allCards, reviewMap]);
+  const activity = { ...defaultActivity(), ...(store.activity || {}) };
 
   const setDeck = (k: string) => setStore({ deckKey: k });
   const setDark = (d: boolean) => setStore({ dark: d });
@@ -943,7 +1075,13 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
             </button>
           ))}
         </div>
-        <AccountMenu userLabel={userLabel} demoMode={demoMode || !googleReady} />
+        <AccountMenu
+          userLabel={userLabel}
+          demoMode={demoMode || !googleReady}
+          activity={activity}
+          onExport={exportBackup}
+          onImport={importBackup}
+        />
         <button className="fc-icon-btn" onClick={() => setDark(!dark)} aria-label="rejimni almashtirish">
           {dark ? <IconSun/> : <IconMoon/>}
         </button>
@@ -977,10 +1115,17 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
             <span>Jami</span>
             <strong>{allCards.length}</strong>
           </div>
+          <div className="fc-progress-stat">
+            <span>Streak</span>
+            <strong>{activity.streak || 0}</strong>
+          </div>
         </div>
       </div>
 
       <div className="fc-body">
+        {backupNotice && (
+          <div className="fc-toast fc-global-toast" role="status">{backupNotice}</div>
+        )}
         {mode === "cards" && (
           <div className="fc-queue-meta">
             <span>Bugungi limit: {queuePlan.new} yangi / {queuePlan.review} review</span>

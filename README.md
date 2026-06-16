@@ -72,6 +72,10 @@ npm run build
 
 There is no dedicated automated test suite yet. For now, use lint and build as the baseline checks.
 
+## Backup and Progress
+
+The account menu includes JSON export/import controls. Export creates a local backup with custom cards, review state, selected deck, and streak data. Import replaces the current browser data for the active account, so export before resetting local storage or switching devices.
+
 ## Safe Git Workflow
 
 Use a branch for every change:

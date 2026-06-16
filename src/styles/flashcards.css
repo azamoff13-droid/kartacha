@@ -88,6 +88,33 @@
   line-height: 1;
 }
 
+.fc-account-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fc-streak {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--accent) 12%, var(--surf));
+  border: 1px solid color-mix(in oklab, var(--accent) 24%, var(--rule));
+  color: var(--ink);
+}
+.fc-streak strong {
+  font-family: "Newsreader", serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1;
+}
+.fc-streak span {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.64;
+}
 .fc-account {
   display: flex;
   align-items: center;
@@ -113,6 +140,18 @@
   font-size: 12px;
   cursor: pointer;
   padding: 0;
+}
+.fc-backup-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.fc-icon-btn.mini {
+  width: 32px;
+  height: 32px;
+}
+.fc-icon-btn input {
+  display: none;
 }
 
 .fc-icon-btn {
@@ -162,7 +201,7 @@
 .fc-mode-spacer { flex: 1; }
 .fc-progress-wrap {
   display: grid;
-  grid-template-columns: repeat(4, minmax(58px, auto));
+  grid-template-columns: repeat(5, minmax(58px, auto));
   gap: 6px;
   padding: 0 0 0 16px;
   margin-bottom: 2px;
@@ -719,6 +758,11 @@ textarea.fc-input { resize: vertical; min-height: 56px; font-size: 15px; }
   border: 1px solid color-mix(in oklab, var(--good) 35%, var(--rule));
   font-size: 13px;
 }
+.fc-global-toast {
+  width: 100%;
+  max-width: 760px;
+  margin: -6px auto 0;
+}
 
 /* Card library -------------------------------------------------------- */
 .fc-manage {
@@ -1019,11 +1063,22 @@ textarea.fc-input { resize: vertical; min-height: 56px; font-size: 15px; }
     justify-content: center;
   }
 
-  .fc-account {
+  .fc-account-wrap {
     order: 4;
-    max-width: none;
     width: calc(100% - 44px);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .fc-account {
+    max-width: none;
+    width: 100%;
     justify-content: space-between;
+  }
+
+  .fc-backup-tools {
+    justify-content: flex-end;
   }
 
   .fc-modes {
@@ -1051,7 +1106,7 @@ textarea.fc-input { resize: vertical; min-height: 56px; font-size: 15px; }
   .fc-progress-wrap {
     width: 100%;
     padding: 0;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .fc-progress-stat {
@@ -1233,6 +1288,14 @@ textarea.fc-input { resize: vertical; min-height: 56px; font-size: 15px; }
 
   .fc-body {
     padding: 12px;
+  }
+
+  .fc-progress-stat span {
+    font-size: 8px;
+  }
+
+  .fc-progress-stat strong {
+    font-size: 15px;
   }
 
   .fc-card {
