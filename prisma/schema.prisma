@@ -19,6 +19,7 @@ model User {
   decks         Deck[]
   cards         Card[]
   reviews       Review[]
+  studyEvents   StudyEvent[]
   activity      Activity?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -63,6 +64,7 @@ model VerificationToken {
 model Deck {
   id        String   @id @default(cuid())
   userId    String
+  key       String?
   name      String
   language  String
   createdAt DateTime @default(now())
@@ -72,6 +74,7 @@ model Deck {
   cards Card[]
 
   @@index([userId])
+  @@unique([userId, key])
 }
 
 model Card {
@@ -80,6 +83,7 @@ model Card {
   deckId    String
   front     String
   back      String
+  pos       String?
   example   String?
   source    CardSource @default(custom)
   createdAt DateTime   @default(now())
@@ -88,6 +92,7 @@ model Card {
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   deck    Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
   reviews Review[]
+  studyEvents StudyEvent[]
 
   @@unique([userId, deckId, front])
   @@index([userId, deckId])
@@ -121,6 +126,27 @@ model Activity {
   updatedAt      DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model StudyEvent {
+  id            String       @id @default(cuid())
+  clientEventId String       @unique
+  userId        String
+  cardId        String
+  deckKey       String
+  rating        ReviewRating
+  shownAt       DateTime
+  revealedAt    DateTime?
+  ratedAt       DateTime
+  activeMs      Int
+  recallMs      Int?
+  createdAt     DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, cardId])
 }
 
 enum CardSource {
