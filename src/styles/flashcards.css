@@ -626,6 +626,9 @@
 .fc-btn.google {
   min-height: 44px;
   justify-content: center;
+  width: 100%;
+  margin-top: 2px;
+  font-weight: 500;
 }
 .fc-btn .kbd {
   font-family: "JetBrains Mono", monospace;
@@ -646,22 +649,23 @@
 }
 .fc-auth-panel {
   width: 100%;
-  max-width: 440px;
+  max-width: 460px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 28px;
+  gap: 16px;
+  padding: 30px;
   border: 1px solid var(--rule);
   border-radius: 18px;
   background: var(--card);
   box-shadow: var(--card-shadow);
 }
 .fc-brand.auth {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
 }
 .fc-auth-panel h1 {
   margin: 0;
-  font-size: 38px;
+  max-width: 360px;
+  font-size: clamp(32px, 6vw, 40px);
   line-height: 1.05;
   font-weight: 500;
   color: var(--ink);
@@ -671,6 +675,22 @@
   margin: 0;
   color: var(--ink);
   opacity: 0.68;
+}
+.fc-auth-benefits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 2px 0 2px;
+}
+.fc-auth-benefits span {
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: var(--surf);
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.72;
 }
 .fc-auth-note {
   padding: 10px 12px;

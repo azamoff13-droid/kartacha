@@ -416,12 +416,16 @@ function AuthScreen({ googleReady, onDemo }: { googleReady: boolean; onDemo: () 
         <div className="fc-auth-panel">
           <div className="fc-brand auth">
             <span className="fc-brand-mark">Karta·cha</span>
-            <span className="fc-brand-sub">Koreys tili</span>
           </div>
-          <h1 className="serif">Hisobingizga kiring</h1>
-          <p>Progress, qiyin so&apos;zlar va custom kartalar alohida profilingizda saqlanadi.</p>
+          <h1 className="serif">Google bilan profilingizni ulang</h1>
+          <p>Yodlagan so&apos;zlar, qiyin kartalar va mashq vaqti hisobingizda saqlanadi.</p>
+          <div className="fc-auth-benefits" aria-label="Profil afzalliklari">
+            <span>Progress saqlanadi</span>
+            <span>Shaxsiy statistika</span>
+            <span>Demo alohida</span>
+          </div>
           <button className="fc-btn primary google" disabled={!googleReady} onClick={() => signIn('google')}>
-            <IconGoogle/> Google orqali kirish
+            <IconGoogle/> Google bilan davom etish
           </button>
           {!googleReady && (
             <div className="fc-auth-note">
@@ -1305,7 +1309,6 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
       <div className="fc-top">
         <div className="fc-brand">
           <span className="fc-brand-mark">Karta·cha</span>
-          <span className="fc-brand-sub">{label}</span>
         </div>
         <div className="fc-decks" role="tablist">
           {Object.entries(DECKS).map(([k, d]) => (
