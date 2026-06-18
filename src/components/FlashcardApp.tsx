@@ -3,6 +3,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { DECKS } from '@/src/lib/decks';
+import { DEMO_COMMON_VERBS } from '@/src/lib/demo-verbs';
+import { PdfImportWorkspace } from '@/src/components/PdfImportWorkspace';
+import type { PdfCardCandidate } from '@/src/lib/pdf-import/types';
 import '@/src/styles/flashcards.css';
 
 const LS_KEY = 'fc-app-v1';
@@ -393,7 +396,9 @@ function useAuthConfig() {
 
   useEffect(() => {
     let alive = true;
-    fetch('/api/auth/config')
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 3000);
+    fetch('/api/auth/config', { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
         if (alive) setConfig({ google: Boolean(data.google) });
@@ -403,6 +408,8 @@ function useAuthConfig() {
       });
     return () => {
       alive = false;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
   }, []);
 
@@ -733,7 +740,7 @@ function QuizMode({ deckKey, cards }: any) {
   );
 }
 
-function AddMode({ deckKey, deckName, cards, reviewMap, knownSet, onAdd, onUpdate, onDelete }: any) {
+function AddMode({ deckKey, deckName, cards, reviewMap, knownSet, onAdd, onUpdate, onDelete, onOpenPdf }: any) {
   const [front, setFront] = useState("");
   const [translation, setTranslation] = useState("");
   const [pos, setPos] = useState("");
@@ -778,7 +785,10 @@ function AddMode({ deckKey, deckName, cards, reviewMap, knownSet, onAdd, onUpdat
     <div className="fc-manage">
       <div className="fc-form">
         <div className="fc-form-head">
-          <div className="fc-pos">{editingId ? "Kartani tahrirlash" : "Yangi karta"}</div>
+          <div>
+            <div className="fc-pos">{editingId ? "Kartani tahrirlash" : "Yangi karta"}</div>
+            <button className="fc-pdf-open" onClick={onOpenPdf}>PDF&apos;dan import →</button>
+          </div>
           <h3 className="serif">{deckName}</h3>
         </div>
         <div className="fc-field">
@@ -914,7 +924,10 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
   const { deckKey, dark, known, custom, reviews, syncQueue = [] } = store;
   const baseCards = useMemo(() => (DECKS[deckKey]?.cards || []).map((card) => withCardMeta(card, 'base')), [deckKey]);
   const customCards = useMemo(() => (custom[deckKey] || []).map((card) => withCardMeta(card, 'custom')), [custom, deckKey]);
-  const allCards = useMemo(() => [...baseCards, ...customCards], [baseCards, customCards]);
+  const allCards = useMemo(() => {
+    const customFronts = new Set(customCards.map((card) => normalizeFront(card.front)));
+    return [...baseCards.filter((card) => !customFronts.has(normalizeFront(card.front))), ...customCards];
+  }, [baseCards, customCards]);
   const deckName = DECKS[deckKey]?.name || '';
   const deckCode = DECKS[deckKey]?.code || '';
   const reviewMap = useMemo(() => reviews[deckKey] || {}, [reviews, deckKey]);
@@ -931,9 +944,38 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
   const [profileStats, setProfileStats] = useState<ProfileStats | null>(null);
   const [localImportStore, setLocalImportStore] = useState<Store | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const demoSeededRef = useRef(false);
   const shownAtRef = useRef(Date.now());
   const revealedAtRef = useRef<number | null>(null);
   const signedIn = Boolean(session?.user?.id && googleReady && !demoMode);
+
+  useEffect(() => {
+    if (demoSeededRef.current || new URLSearchParams(window.location.search).get('demo') !== 'verbs100') return;
+    demoSeededRef.current = true;
+    setDemoMode(true);
+    setStore((prevStore) => {
+      const current = [...(prevStore.custom.en || [])];
+      const existing = new Set([
+        ...DECKS.en.cards.map((card) => normalizeFront(card.front)),
+        ...current.map((card) => normalizeFront(card.front)),
+      ]);
+      const now = Date.now();
+      for (const [index, verb] of DEMO_COMMON_VERBS.entries()) {
+        const key = normalizeFront(verb.front);
+        if (existing.has(key)) continue;
+        current.push({
+          ...verb,
+          id: `demo-verb-${index + 1}`,
+          source: 'custom',
+          createdAt: now + index,
+        });
+        existing.add(key);
+      }
+      return { ...prevStore, deckKey: 'en', custom: { ...prevStore.custom, en: current } };
+    });
+    setMode('add');
+    setBackupNotice("100 ta fe'l demo kolodaga qo'shildi.");
+  }, [setStore]);
 
   const fetchProfileStats = useCallback(() => {
     if (!signedIn) {
@@ -1202,6 +1244,41 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
     return { ok: true, message: "Karta o'chirildi." };
   };
 
+  const applyPdfCardsLocally = useCallback((targetDeckKey: string, imported: PdfCardCandidate[]) => {
+    const result = { added: 0, updated: 0, skipped: 0 };
+    const current = [...(custom[targetDeckKey] || [])];
+    const baseFronts = new Set((DECKS[targetDeckKey]?.cards || []).map((item) => normalizeFront(item.front)));
+
+    for (const candidate of imported) {
+      const key = normalizeFront(candidate.front);
+      const existingIndex = current.findIndex((item) => normalizeFront(item.front) === key);
+      const isDuplicate = existingIndex >= 0 || baseFronts.has(key);
+      if (isDuplicate && candidate.duplicateAction !== 'update') {
+        result.skipped += 1;
+        continue;
+      }
+      const now = Date.now();
+      const card: CardRecord = {
+        front: candidate.front,
+        translation: candidate.translation,
+        pos: candidate.pos,
+        example: candidate.example,
+        source: 'custom',
+        updatedAt: now,
+      };
+      if (existingIndex >= 0) {
+        current[existingIndex] = { ...current[existingIndex], ...card };
+        result.updated += 1;
+      } else {
+        current.push({ ...card, id: `pdf-${now}-${current.length}`, createdAt: now });
+        if (isDuplicate) result.updated += 1;
+        else result.added += 1;
+      }
+    }
+    setStore((prevStore) => ({ ...prevStore, deckKey: targetDeckKey, custom: { ...prevStore.custom, [targetDeckKey]: current } }));
+    return result;
+  }, [custom, setStore]);
+
   const exportBackup = () => {
     if (typeof window === 'undefined') return;
     const payload = {
@@ -1424,6 +1501,26 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
             onAdd={addCustomCard}
             onUpdate={updateCustomCard}
             onDelete={deleteCustomCard}
+            onOpenPdf={() => setMode('pdf')}
+          />
+        )}
+        {mode === "pdf" && (
+          <PdfImportWorkspace
+            initialDeckKey={deckKey}
+            existingFronts={Object.fromEntries(Object.keys(DECKS).map((key) => [
+              key,
+              [
+                ...(DECKS[key]?.cards || []).map((item) => item.front),
+                ...(custom[key] || []).map((item) => item.front),
+              ],
+            ]))}
+            signedIn={signedIn}
+            onApplyLocal={applyPdfCardsLocally}
+            onClose={() => setMode('add')}
+            onOpenCards={(targetDeckKey) => {
+              setStore({ deckKey: targetDeckKey });
+              setMode('add');
+            }}
           />
         )}
       </div>
