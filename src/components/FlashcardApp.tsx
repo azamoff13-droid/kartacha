@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { DECKS } from '@/src/lib/decks';
+import { DEMO_COMMON_VERBS } from '@/src/lib/demo-verbs';
+import { PdfImportWorkspace } from '@/src/components/PdfImportWorkspace';
+import type { PdfCardCandidate } from '@/src/lib/pdf-import/types';
 import '@/src/styles/flashcards.css';
 
 const LS_KEY = 'fc-app-v1';
@@ -59,6 +62,43 @@ interface ActivityState {
   totalReviews: number;
 }
 
+interface SyncReviewEvent {
+  clientEventId: string;
+  cardId: string;
+  deckKey: string;
+  rating: Rating;
+  shownAt: string;
+  revealedAt?: string | null;
+  ratedAt: string;
+  activeMs: number;
+  recallMs?: number | null;
+  card: {
+    id?: string;
+    front: string;
+    translation: string;
+    pos?: string;
+    example?: string;
+    source?: 'base' | 'custom';
+  };
+}
+
+interface ProfileStats {
+  identity: {
+    name: string | null;
+    email: string | null;
+    image: string | null;
+  };
+  stats: {
+    learnedWords: number;
+    totalReviews: number;
+    totalStudyLabel: string;
+    averageRecallLabel: string;
+    streak: number;
+    bestStreak: number;
+    hardWords: HardWord[];
+  };
+}
+
 interface Store {
   deckKey: string;
   dark: boolean;
@@ -66,6 +106,9 @@ interface Store {
   custom: Record<string, CardRecord[]>;
   reviews: Record<string, Record<string, ReviewState>>;
   activity: ActivityState;
+  syncQueue?: SyncReviewEvent[];
+  importedToProfile?: boolean;
+  importDismissed?: boolean;
 }
 
 interface AuthConfig {
@@ -90,6 +133,22 @@ function defaultActivity(): ActivityState {
   return { streak: 0, bestStreak: 0, totalReviews: 0 };
 }
 
+function hasMeaningfulLocalProgress(store: Store | null | undefined) {
+  if (!store) return false;
+  const hasReviews = Object.values(store.reviews || {}).some((deckReviews) => Object.keys(deckReviews || {}).length > 0);
+  const hasCustomCards = Object.values(store.custom || {}).some((cards) => cards.length > 0);
+  return hasReviews || hasCustomCards || (store.activity?.totalReviews || 0) > 0;
+}
+
+function createClientEventId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `event-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function capInteractionMs(value: number) {
+  return Math.max(0, Math.min(60 * 1000, Math.round(value)));
+}
+
 function updateActivity(activity: ActivityState | undefined) {
   const current = activity || defaultActivity();
   const today = todayKey();
@@ -109,7 +168,7 @@ function updateActivity(activity: ActivityState | undefined) {
 }
 
 function loadStore(storageKey: string): Store {
-  const fallback: Store = { deckKey: 'en', dark: false, known: {}, custom: { en: [], ko: [] }, reviews: {}, activity: defaultActivity() };
+  const fallback: Store = { deckKey: 'en', dark: false, known: {}, custom: { en: [], ko: [] }, reviews: {}, activity: defaultActivity(), syncQueue: [] };
   try {
     if (typeof window !== 'undefined') {
       const raw = localStorage.getItem(storageKey);
@@ -123,6 +182,9 @@ function loadStore(storageKey: string): Store {
           custom: { ...fallback.custom, ...(parsed.custom || {}) },
           reviews: parsed.reviews || {},
           activity: { ...fallback.activity, ...(parsed.activity || {}) },
+          syncQueue: Array.isArray(parsed.syncQueue) ? parsed.syncQueue : [],
+          importedToProfile: Boolean(parsed.importedToProfile),
+          importDismissed: Boolean(parsed.importDismissed),
         };
       }
     }
@@ -334,7 +396,9 @@ function useAuthConfig() {
 
   useEffect(() => {
     let alive = true;
-    fetch('/api/auth/config')
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 3000);
+    fetch('/api/auth/config', { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
         if (alive) setConfig({ google: Boolean(data.google) });
@@ -344,6 +408,8 @@ function useAuthConfig() {
       });
     return () => {
       alive = false;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
   }, []);
 
@@ -357,12 +423,16 @@ function AuthScreen({ googleReady, onDemo }: { googleReady: boolean; onDemo: () 
         <div className="fc-auth-panel">
           <div className="fc-brand auth">
             <span className="fc-brand-mark">Karta·cha</span>
-            <span className="fc-brand-sub">Koreys tili</span>
           </div>
-          <h1 className="serif">Hisobingizga kiring</h1>
-          <p>Progress, qiyin so&apos;zlar va custom kartalar alohida profilingizda saqlanadi.</p>
+          <h1 className="serif">Google bilan profilingizni ulang</h1>
+          <p>Yodlagan so&apos;zlar, qiyin kartalar va mashq vaqti hisobingizda saqlanadi.</p>
+          <div className="fc-auth-benefits" aria-label="Profil afzalliklari">
+            <span>Progress saqlanadi</span>
+            <span>Shaxsiy statistika</span>
+            <span>Demo alohida</span>
+          </div>
           <button className="fc-btn primary google" disabled={!googleReady} onClick={() => signIn('google')}>
-            <IconGoogle/> Google orqali kirish
+            <IconGoogle/> Google bilan davom etish
           </button>
           {!googleReady && (
             <div className="fc-auth-note">
@@ -380,29 +450,94 @@ function AccountMenu({
   userLabel,
   demoMode,
   activity,
+  profileStats,
+  pendingSyncCount,
+  isSyncing,
+  showImportPrompt,
+  onImportToProfile,
+  onDismissImport,
   onExport,
   onImport,
 }: {
   userLabel: string;
   demoMode: boolean;
   activity: ActivityState;
+  profileStats: ProfileStats | null;
+  pendingSyncCount: number;
+  isSyncing: boolean;
+  showImportPrompt: boolean;
+  onImportToProfile: () => void;
+  onDismissImport: () => void;
   onExport: () => void;
   onImport: (file: File) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const stats = profileStats?.stats;
+  const identity = profileStats?.identity;
+  const syncLabel = pendingSyncCount
+    ? `Offline queue: ${pendingSyncCount}`
+    : isSyncing
+      ? 'Sinxronlanmoqda'
+      : 'Saqlangan';
+
   return (
     <div className="fc-account-wrap">
       <div className="fc-streak" title="Kunlik streak">
-        <strong>{activity.streak || 0}</strong>
+        <strong>{stats?.streak ?? activity.streak ?? 0}</strong>
         <span>kun</span>
       </div>
       <div className="fc-account">
-        <span>{demoMode ? 'Demo' : userLabel}</span>
+        <button className="fc-profile-trigger" onClick={() => setOpen((value) => !value)}>
+          {identity?.image && <span className="fc-profile-trigger-avatar" style={{ backgroundImage: `url(${identity.image})` }} />}
+          <span>{demoMode ? 'Demo' : userLabel}</span>
+        </button>
         {demoMode ? (
           <button className="fc-link-btn" onClick={() => signIn('google')}>Google</button>
         ) : (
           <button className="fc-link-btn" onClick={() => signOut()}>Chiqish</button>
         )}
       </div>
+      {open && (
+        <div className="fc-profile-panel">
+          <div className="fc-profile-head">
+            {identity?.image ? (
+              <span className="fc-profile-avatar image" style={{ backgroundImage: `url(${identity.image})` }} />
+            ) : (
+              <span className="fc-profile-avatar">{userLabel.slice(0, 1).toUpperCase()}</span>
+            )}
+            <div>
+              <strong>{identity?.name || userLabel}</strong>
+              <em>{identity?.email || (demoMode ? 'Demo rejim' : 'Profil')}</em>
+            </div>
+          </div>
+          {showImportPrompt && (
+            <div className="fc-import-box">
+              <p>Bu qurilmada eski progress bor. Profilga ko&apos;chirasizmi?</p>
+              <div>
+                <button onClick={onImportToProfile}>Ko&apos;chirish</button>
+                <button onClick={onDismissImport}>Hozir emas</button>
+              </div>
+            </div>
+          )}
+          <div className="fc-profile-grid">
+            <div><span>Yodlangan</span><strong>{stats?.learnedWords ?? 0}</strong></div>
+            <div><span>Review</span><strong>{stats?.totalReviews ?? activity.totalReviews ?? 0}</strong></div>
+            <div><span>Vaqt</span><strong>{stats?.totalStudyLabel || '0s'}</strong></div>
+            <div><span>Eslash</span><strong>{stats?.averageRecallLabel || '0s'}</strong></div>
+            <div><span>Streak</span><strong>{stats?.streak ?? activity.streak ?? 0}</strong></div>
+            <div><span>Best</span><strong>{stats?.bestStreak ?? activity.bestStreak ?? 0}</strong></div>
+          </div>
+          {!!stats?.hardWords?.length && (
+            <div className="fc-profile-hard">
+              <span>Qiyin so&apos;zlar</span>
+              {stats.hardWords.slice(0, 3).map((word) => (
+                <em key={word.id}>{word.front}</em>
+              ))}
+            </div>
+          )}
+          <div className={`fc-sync-status ${pendingSyncCount ? 'pending' : ''}`}>{syncLabel}</div>
+        </div>
+      )}
       <div className="fc-backup-tools" aria-label="Backup">
         <button className="fc-icon-btn mini" onClick={onExport} title="Backup yuklab olish">
           <IconDownload/>
@@ -420,7 +555,7 @@ function AccountMenu({
   );
 }
 
-function CardsMode({ card, revealed, setRevealed, rateCard, next, prev, catNum, deckCode, deckKey, hasCards, sessionStats, onAddCard, onRestart }: any) {
+function CardsMode({ card, revealed, onToggleReveal, rateCard, next, prev, catNum, deckCode, deckKey, hasCards, sessionStats, onAddCard, onRestart }: any) {
   if (!card) {
     if (hasCards) {
       return (
@@ -476,7 +611,7 @@ function CardsMode({ card, revealed, setRevealed, rateCard, next, prev, catNum, 
         <div
           key={cardId(card)}
           className={`fc-card ${revealed ? "revealed" : ""}`}
-          onClick={() => setRevealed((r: boolean) => !r)}
+          onClick={onToggleReveal}
           data-num={String(catNum).padStart(4, "0")}
         >
           <button
@@ -511,7 +646,7 @@ function CardsMode({ card, revealed, setRevealed, rateCard, next, prev, catNum, 
       </div>
       <div className="fc-actions">
         <button className="fc-btn" onClick={prev}>← Oldingi</button>
-        <button className="fc-btn primary" onClick={() => setRevealed((r: boolean) => !r)}>
+        <button className="fc-btn primary" onClick={onToggleReveal}>
           {revealed ? "Yopish" : "Javobni ochish"}
         </button>
         <button className="fc-btn" onClick={next}>Keyingisi →</button>
@@ -605,7 +740,7 @@ function QuizMode({ deckKey, cards }: any) {
   );
 }
 
-function AddMode({ deckKey, deckName, cards, reviewMap, knownSet, onAdd, onUpdate, onDelete }: any) {
+function AddMode({ deckKey, deckName, cards, reviewMap, knownSet, onAdd, onUpdate, onDelete, onOpenPdf }: any) {
   const [front, setFront] = useState("");
   const [translation, setTranslation] = useState("");
   const [pos, setPos] = useState("");
@@ -650,7 +785,10 @@ function AddMode({ deckKey, deckName, cards, reviewMap, knownSet, onAdd, onUpdat
     <div className="fc-manage">
       <div className="fc-form">
         <div className="fc-form-head">
-          <div className="fc-pos">{editingId ? "Kartani tahrirlash" : "Yangi karta"}</div>
+          <div>
+            <div className="fc-pos">{editingId ? "Kartani tahrirlash" : "Yangi karta"}</div>
+            <button className="fc-pdf-open" onClick={onOpenPdf}>PDF&apos;dan import →</button>
+          </div>
           <h3 className="serif">{deckName}</h3>
         </div>
         <div className="fc-field">
@@ -783,10 +921,13 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
   }, [session?.user?.email, session?.user?.id]);
   const [store, setStore] = useStore(storageKeyFor(userKey));
 
-  const { deckKey, dark, known, custom, reviews } = store;
+  const { deckKey, dark, known, custom, reviews, syncQueue = [] } = store;
   const baseCards = useMemo(() => (DECKS[deckKey]?.cards || []).map((card) => withCardMeta(card, 'base')), [deckKey]);
   const customCards = useMemo(() => (custom[deckKey] || []).map((card) => withCardMeta(card, 'custom')), [custom, deckKey]);
-  const allCards = useMemo(() => [...baseCards, ...customCards], [baseCards, customCards]);
+  const allCards = useMemo(() => {
+    const customFronts = new Set(customCards.map((card) => normalizeFront(card.front)));
+    return [...baseCards.filter((card) => !customFronts.has(normalizeFront(card.front))), ...customCards];
+  }, [baseCards, customCards]);
   const deckName = DECKS[deckKey]?.name || '';
   const deckCode = DECKS[deckKey]?.code || '';
   const reviewMap = useMemo(() => reviews[deckKey] || {}, [reviews, deckKey]);
@@ -800,6 +941,55 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
   const [sessionQueueIds, setSessionQueueIds] = useState<string[]>([]);
   const [queuePlan, setQueuePlan] = useState<QueuePlan>({ new: 0, review: 0 });
   const [backupNotice, setBackupNotice] = useState("");
+  const [profileStats, setProfileStats] = useState<ProfileStats | null>(null);
+  const [localImportStore, setLocalImportStore] = useState<Store | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const demoSeededRef = useRef(false);
+  const shownAtRef = useRef(Date.now());
+  const revealedAtRef = useRef<number | null>(null);
+  const signedIn = Boolean(session?.user?.id && googleReady && !demoMode);
+
+  useEffect(() => {
+    if (demoSeededRef.current || new URLSearchParams(window.location.search).get('demo') !== 'verbs100') return;
+    demoSeededRef.current = true;
+    setDemoMode(true);
+    setStore((prevStore) => {
+      const current = [...(prevStore.custom.en || [])];
+      const existing = new Set([
+        ...DECKS.en.cards.map((card) => normalizeFront(card.front)),
+        ...current.map((card) => normalizeFront(card.front)),
+      ]);
+      const now = Date.now();
+      for (const [index, verb] of DEMO_COMMON_VERBS.entries()) {
+        const key = normalizeFront(verb.front);
+        if (existing.has(key)) continue;
+        current.push({
+          ...verb,
+          id: `demo-verb-${index + 1}`,
+          source: 'custom',
+          createdAt: now + index,
+        });
+        existing.add(key);
+      }
+      return { ...prevStore, deckKey: 'en', custom: { ...prevStore.custom, en: current } };
+    });
+    setMode('add');
+    setBackupNotice("100 ta fe'l demo kolodaga qo'shildi.");
+  }, [setStore]);
+
+  const fetchProfileStats = useCallback(() => {
+    if (!signedIn) {
+      setProfileStats(null);
+      return Promise.resolve();
+    }
+
+    return fetch('/api/profile/stats')
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.ok) setProfileStats({ identity: data.identity, stats: data.stats });
+      })
+      .catch(() => {});
+  }, [signedIn]);
 
   useEffect(() => {
     const plannedReviewMap = reviews[deckKey] || {};
@@ -817,17 +1007,55 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckKey, allCards.length]);
 
+  useEffect(() => {
+    if (!signedIn) return;
+    setLocalImportStore(loadStore(storageKeyFor(DEMO_USER_KEY)));
+    fetch('/api/sync/bootstrap').catch(() => {});
+    fetchProfileStats();
+  }, [signedIn, fetchProfileStats]);
+
   const dailyQueue = useMemo(() => {
     const cardsById = new Map(allCards.map((item) => [cardId(item), item]));
     return sessionQueueIds.map((id) => cardsById.get(id)).filter(Boolean) as CardRecord[];
   }, [allCards, sessionQueueIds]);
   const card = sessionDone ? undefined : dailyQueue[index];
+  const currentCardId = card ? cardId(card) : 'none';
   const knownCount = Object.keys(knownSet).filter((k) => knownSet[k]).length;
   const progress = allCards.length ? knownCount / allCards.length : 0;
   const retentionPercent = Math.round(progress * 100);
   const reviewedCount = Object.keys(reviewMap).length;
   const dueCount = Object.values(reviewMap).filter((review) => review.dueAt <= Date.now()).length;
   const currentCardLabel = dailyQueue.length && card ? `${index + 1}/${dailyQueue.length}` : "0/0";
+  const pendingSyncCount = syncQueue.length;
+
+  useEffect(() => {
+    shownAtRef.current = Date.now();
+    revealedAtRef.current = null;
+  }, [currentCardId]);
+
+  useEffect(() => {
+    if (!signedIn || !syncQueue.length || isSyncing) return;
+    const queueSnapshot = syncQueue.slice();
+    const queuedIds = new Set(queueSnapshot.map((event) => event.clientEventId));
+
+    setIsSyncing(true);
+    fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ events: queueSnapshot }),
+    })
+      .then((res) => res.ok ? res.json() : Promise.reject(new Error('sync failed')))
+      .then((data) => {
+        if (!data?.ok) throw new Error('sync failed');
+        setStore((prevStore) => ({
+          ...prevStore,
+          syncQueue: (prevStore.syncQueue || []).filter((event) => !queuedIds.has(event.clientEventId)),
+        }));
+        fetchProfileStats();
+      })
+      .catch(() => {})
+      .finally(() => setIsSyncing(false));
+  }, [fetchProfileStats, isSyncing, setStore, signedIn, syncQueue]);
 
   const deckBadges = useMemo(() => {
     return Object.fromEntries(Object.entries(DECKS).map(([key, deck]) => {
@@ -850,6 +1078,15 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
     setRevealed(false);
   }, [dailyQueue.length]);
 
+  const toggleReveal = useCallback(() => {
+    setRevealed((current) => {
+      if (!current && !revealedAtRef.current) {
+        revealedAtRef.current = Date.now();
+      }
+      return !current;
+    });
+  }, []);
+
   const prev = useCallback(() => {
     setSessionDone(false);
     setIndex((i) => Math.max(0, i - 1));
@@ -861,6 +1098,30 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
     const id = cardId(card);
     const xpByRating = { again: 5, hard: 8, good: 10, easy: 12 };
     let tomorrowCount = 0;
+    const ratedAt = Date.now();
+    const shownAt = shownAtRef.current || ratedAt;
+    const revealedAt = revealedAtRef.current;
+    const activeMs = capInteractionMs(ratedAt - shownAt);
+    const recallMs = revealedAt ? capInteractionMs(revealedAt - shownAt) : null;
+    const syncEvent: SyncReviewEvent | null = signedIn ? {
+      clientEventId: createClientEventId(),
+      cardId: id,
+      deckKey,
+      rating,
+      shownAt: new Date(shownAt).toISOString(),
+      revealedAt: revealedAt ? new Date(revealedAt).toISOString() : null,
+      ratedAt: new Date(ratedAt).toISOString(),
+      activeMs,
+      recallMs,
+      card: {
+        id: card.id,
+        front: card.front,
+        translation: card.translation,
+        pos: card.pos,
+        example: card.example,
+        source: card.source,
+      },
+    } : null;
 
     setStore((prevStore) => {
       const prevDeckReviews = prevStore.reviews[deckKey] || {};
@@ -876,6 +1137,7 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
         known: { ...prevStore.known, [deckKey]: deckKnown },
         reviews: { ...prevStore.reviews, [deckKey]: nextDeckReviews },
         activity: updateActivity(prevStore.activity),
+        syncQueue: syncEvent ? [...(prevStore.syncQueue || []), syncEvent] : prevStore.syncQueue,
       };
     });
     setSessionStats((stats) => ({
@@ -889,7 +1151,7 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
       setIndex((i) => i + 1);
     }
     setRevealed(false);
-  }, [card, dailyQueue.length, deckKey, index, setStore]);
+  }, [card, dailyQueue.length, deckKey, index, setStore, signedIn]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -897,7 +1159,7 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
       if (!card || mode !== 'cards' || target?.closest('input, textarea, button')) return;
       if (event.code === 'Space') {
         event.preventDefault();
-        setRevealed((value) => !value);
+        toggleReveal();
       }
       if (event.key === '1') rateCard('again');
       if (event.key === '2') rateCard('hard');
@@ -906,7 +1168,7 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [card, mode, rateCard]);
+  }, [card, mode, rateCard, toggleReveal]);
 
   const restartSession = useCallback(() => {
     const plannedQueue = getDailyQueue(allCards, reviewMap);
@@ -982,6 +1244,41 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
     return { ok: true, message: "Karta o'chirildi." };
   };
 
+  const applyPdfCardsLocally = useCallback((targetDeckKey: string, imported: PdfCardCandidate[]) => {
+    const result = { added: 0, updated: 0, skipped: 0 };
+    const current = [...(custom[targetDeckKey] || [])];
+    const baseFronts = new Set((DECKS[targetDeckKey]?.cards || []).map((item) => normalizeFront(item.front)));
+
+    for (const candidate of imported) {
+      const key = normalizeFront(candidate.front);
+      const existingIndex = current.findIndex((item) => normalizeFront(item.front) === key);
+      const isDuplicate = existingIndex >= 0 || baseFronts.has(key);
+      if (isDuplicate && candidate.duplicateAction !== 'update') {
+        result.skipped += 1;
+        continue;
+      }
+      const now = Date.now();
+      const card: CardRecord = {
+        front: candidate.front,
+        translation: candidate.translation,
+        pos: candidate.pos,
+        example: candidate.example,
+        source: 'custom',
+        updatedAt: now,
+      };
+      if (existingIndex >= 0) {
+        current[existingIndex] = { ...current[existingIndex], ...card };
+        result.updated += 1;
+      } else {
+        current.push({ ...card, id: `pdf-${now}-${current.length}`, createdAt: now });
+        if (isDuplicate) result.updated += 1;
+        else result.added += 1;
+      }
+    }
+    setStore((prevStore) => ({ ...prevStore, deckKey: targetDeckKey, custom: { ...prevStore.custom, [targetDeckKey]: current } }));
+    return result;
+  }, [custom, setStore]);
+
   const exportBackup = () => {
     if (typeof window === 'undefined') return;
     const payload = {
@@ -1031,12 +1328,41 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
     reader.readAsText(file);
   };
 
+  const importLocalProgressToProfile = useCallback(() => {
+    if (!signedIn || !localImportStore) return;
+
+    fetch('/api/sync/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ store: localImportStore }),
+    })
+      .then((res) => res.ok ? res.json() : Promise.reject(new Error('import failed')))
+      .then((data) => {
+        if (!data?.ok) throw new Error('import failed');
+        setStore((prevStore) => ({ ...prevStore, importedToProfile: true, importDismissed: false }));
+        setLocalImportStore(null);
+        setBackupNotice("Eski progress profilga ko'chirildi.");
+        fetchProfileStats();
+      })
+      .catch(() => {
+        setBackupNotice("Progressni profilga ko'chirib bo'lmadi.");
+      });
+  }, [fetchProfileStats, localImportStore, setStore, signedIn]);
+
+  const dismissProfileImport = useCallback(() => {
+    setStore((prevStore) => ({ ...prevStore, importDismissed: true }));
+  }, [setStore]);
+
   const summaryStats = {
     ...sessionStats,
     tomorrow: sessionStats.reviewed ? sessionStats.tomorrow : countTomorrowReviews(reviewMap),
   };
   const hardWords = useMemo(() => getHardWords(allCards, reviewMap), [allCards, reviewMap]);
   const activity = { ...defaultActivity(), ...(store.activity || {}) };
+  const showImportPrompt = signedIn
+    && !store.importedToProfile
+    && !store.importDismissed
+    && hasMeaningfulLocalProgress(localImportStore);
 
   const setDeck = (k: string) => setStore({ deckKey: k });
   const setDark = (d: boolean) => setStore({ dark: d });
@@ -1060,7 +1386,6 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
       <div className="fc-top">
         <div className="fc-brand">
           <span className="fc-brand-mark">Karta·cha</span>
-          <span className="fc-brand-sub">{label}</span>
         </div>
         <div className="fc-decks" role="tablist">
           {Object.entries(DECKS).map(([k, d]) => (
@@ -1079,6 +1404,12 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
           userLabel={userLabel}
           demoMode={demoMode || !googleReady}
           activity={activity}
+          profileStats={profileStats}
+          pendingSyncCount={pendingSyncCount}
+          isSyncing={isSyncing}
+          showImportPrompt={showImportPrompt}
+          onImportToProfile={importLocalProgressToProfile}
+          onDismissImport={dismissProfileImport}
           onExport={exportBackup}
           onImport={importBackup}
         />
@@ -1139,7 +1470,7 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
           <CardsMode
             card={card}
             revealed={revealed}
-            setRevealed={setRevealed}
+            onToggleReveal={toggleReveal}
             rateCard={rateCard}
             next={next}
             prev={prev}
@@ -1170,6 +1501,26 @@ export function FlashcardApp({ label = "Karta·cha" }: { label?: string }) {
             onAdd={addCustomCard}
             onUpdate={updateCustomCard}
             onDelete={deleteCustomCard}
+            onOpenPdf={() => setMode('pdf')}
+          />
+        )}
+        {mode === "pdf" && (
+          <PdfImportWorkspace
+            initialDeckKey={deckKey}
+            existingFronts={Object.fromEntries(Object.keys(DECKS).map((key) => [
+              key,
+              [
+                ...(DECKS[key]?.cards || []).map((item) => item.front),
+                ...(custom[key] || []).map((item) => item.front),
+              ],
+            ]))}
+            signedIn={signedIn}
+            onApplyLocal={applyPdfCardsLocally}
+            onClose={() => setMode('add')}
+            onOpenCards={(targetDeckKey) => {
+              setStore({ deckKey: targetDeckKey });
+              setMode('add');
+            }}
           />
         )}
       </div>
